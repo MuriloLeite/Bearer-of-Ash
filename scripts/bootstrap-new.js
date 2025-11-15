@@ -1,11 +1,12 @@
-// Bootstrap v4 - Simplified (Map + Player + Enemy only)
+// Bootstrap v5 - Com sistema de visão completo
 (function () {
   "use strict";
 
-  console.log("🚀 Bootstrap v4 - Simplified version (no altar)");
+  console.log("🚀 Bootstrap v5 - Com área de visão do inimigo");
 
   function loadGameScripts(callback) {
     var scripts = [
+      "scripts/assetLoader.js", // Carrega primeiro o asset loader
       "scripts/playerController.js",
       "scripts/enemyAI.js",
       "scripts/gameManager.js",
@@ -16,7 +17,7 @@
     function checkComplete() {
       loaded++;
       if (loaded === scripts.length) {
-        console.log("All scripts loaded");
+        console.log("✅ All scripts loaded");
         callback();
       }
     }
@@ -26,35 +27,10 @@
       script.src = src + "?v=" + Date.now();
       script.onload = checkComplete;
       script.onerror = function () {
-        console.error("Failed to load:", src);
+        console.error("❌ Failed to load:", src);
         checkComplete();
       };
       document.head.appendChild(script);
-    });
-  }
-
-  function loadAssets(app, list, done) {
-    var loadedAssets = [];
-    var toLoad = list.length;
-    var loaded = 0;
-
-    list.forEach(function (item) {
-      var asset = new pc.Asset(item.url, item.type, { url: item.url });
-      app.assets.add(asset);
-
-      asset.ready(function () {
-        loadedAssets.push(asset);
-        loaded++;
-        if (loaded === toLoad) done(loadedAssets);
-      });
-
-      asset.on("error", function (err) {
-        console.warn("Failed to load asset:", item.url, err);
-        loaded++;
-        if (loaded === toLoad) done(loadedAssets);
-      });
-
-      app.assets.load(asset);
     });
   }
 
@@ -108,7 +84,7 @@
   }
 
   function main() {
-    console.log("🎮 Starting simplified game...");
+    console.log("🎮 Starting game with vision system...");
 
     var canvas = document.getElementById("application-canvas");
     var app = new pc.Application(canvas, {
@@ -125,7 +101,17 @@
     });
 
     loadGameScripts(function () {
-      buildScene(app);
+      // Aguarda o asset loader carregar os assets
+      if (typeof loadGameAssets === "function") {
+        console.log("📦 Loading game assets...");
+        loadGameAssets(app).then(function () {
+          console.log("✅ Assets loaded, building scene...");
+          buildScene(app);
+        });
+      } else {
+        console.warn("⚠️ loadGameAssets not found, building scene without assets");
+        buildScene(app);
+      }
     });
   }
 
@@ -234,116 +220,92 @@
       }
     );
 
-    // Assets (only map, player, enemy)
-    var assetList = [
-      { url: "game_assets/world/scenario.png", type: "texture" },
-      { url: "game_assets/player/player_back.png", type: "texture" },
-      { url: "game_assets/player/player_front.png", type: "texture" },
-      { url: "game_assets/player/player_side.png", type: "texture" },
-      { url: "game_assets/enemy/enemy_back.png", type: "texture" },
-      { url: "game_assets/enemy/enemy_front.png", type: "texture" },
-      { url: "game_assets/enemy/enemy_side.png", type: "texture" },
-    ];
+    // Pega texturas carregadas do GAME_TEXTURES
+    var heroTex = window.GAME_TEXTURES?.player || [];
+    var enemyTex = window.GAME_TEXTURES?.enemy || [];
+    var visionTex = window.GAME_TEXTURES?.vision || [];
+    var mapTex = window.GAME_TEXTURES?.world?.scenario;
 
-    loadAssets(app, assetList, function (assets) {
-      function find(url) {
-        return assets.find(
-          (a) => a && a.name && a.name.indexOf(url.split("/").pop()) !== -1
-        );
-      }
-
-      var texMap = find("scenario.png");
-      var heroTex = [
-        find("player_back.png"),
-        find("player_front.png"),
-        find("player_side.png"),
-      ].map((a) => (a ? a.resource : null));
-      var enemyTex = [
-        find("enemy_back.png"),
-        find("enemy_front.png"),
-        find("enemy_side.png"),
-      ].map((a) => (a ? a.resource : null));
-
-      // Global textures
-      window.GAME_TEXTURES = { hero: heroTex, enemy: enemyTex };
-      console.log("🎨 Loaded textures:", window.GAME_TEXTURES);
-
-      // Background (map)
-      var background = new pc.Entity("Background");
-      background.addComponent("render", { type: "box" });
-      background.setLocalScale(24, 24, 0.1);
-      background.setLocalPosition(0, 0, -1);
-      if (texMap && texMap.resource) {
-        background.render.meshInstances[0].material = makeMaterial(
-          texMap.resource
-        );
-      }
-      world.addChild(background);
-
-      // Player
-      var player = new pc.Entity("Player");
-      player.addComponent("render", { type: "box" });
-      player.setLocalScale(1, 1, 0.1);
-      player.setLocalPosition(0, -5, 0.02);
-      if (heroTex[0]) {
-        player.render.meshInstances[0].material = makeMaterial(heroTex[0]);
-      }
-      player._heroTextures = heroTex;
-      player.addComponent("script");
-      player.script.create("playerController", {
-        attributes: {
-          boundsMin: new pc.Vec2(-11, -11),
-          boundsMax: new pc.Vec2(11, 11),
-        },
-      });
-      world.addChild(player);
-
-      // GameManager
-      var gm = new pc.Entity("GameManager");
-      gm.addComponent("script");
-      gm.script.create("gameManager");
-      world.addChild(gm);
-
-      // Enemy Prefab
-      var enemyPrefab = new pc.Entity("EnemyPrefab");
-      enemyPrefab.addComponent("render", { type: "box" });
-      enemyPrefab.setLocalScale(0.9, 0.9, 0.1);
-      if (enemyTex[0]) {
-        enemyPrefab.render.meshInstances[0].material = makeMaterial(
-          enemyTex[0]
-        );
-      }
-      enemyPrefab._enemyTextures = enemyTex;
-      enemyPrefab.addComponent("script");
-      enemyPrefab.script.create("enemyAI");
-      enemyPrefab.enabled = false;
-      gm.addChild(enemyPrefab);
-
-      // UI Manager
-      var uiMgr = new pc.Entity("UiManager");
-      uiMgr.addComponent("script");
-      uiMgr.script.create("uiManager", {
-        attributes: {
-          menuPanel: menuPanel,
-          hudPanel: hudPanel,
-          pausePanel: pausePanel,
-          enemyCountText: enemyCountText,
-          btnStart: btnStart,
-          btnExit: btnExit,
-        },
-      });
-      ui.addChild(uiMgr);
-
-      // Connect scripts
-      gm.script.gameManager.player = player;
-      gm.script.gameManager.uiManager = uiMgr;
-      gm.script.gameManager.enemyPrefab = enemyPrefab;
-
-      // Start paused
-      menuPanel.enabled = true;
-      hudPanel.enabled = false;
-      app.fire("game:pause");
+    console.log("🎨 Using textures:", {
+      hero: heroTex.length,
+      enemy: enemyTex.length,
+      vision: visionTex.length,
+      map: !!mapTex,
     });
+
+    // Background (map)
+    var background = new pc.Entity("Background");
+    background.addComponent("render", { type: "box" });
+    background.setLocalScale(24, 24, 0.1);
+    background.setLocalPosition(0, 0, -1);
+    if (mapTex) {
+      background.render.meshInstances[0].material = makeMaterial(mapTex);
+    }
+    world.addChild(background);
+
+    // Player
+    var player = new pc.Entity("Player");
+    player.addComponent("render", { type: "box" });
+    player.setLocalScale(1, 1, 0.1);
+    player.setLocalPosition(0, -5, 0.02);
+    if (heroTex[0]) {
+      player.render.meshInstances[0].material = makeMaterial(heroTex[0]);
+    }
+    player._heroTextures = heroTex;
+    player.addComponent("script");
+    player.script.create("playerController", {
+      attributes: {
+        boundsMin: new pc.Vec2(-11, -11),
+        boundsMax: new pc.Vec2(11, 11),
+      },
+    });
+    world.addChild(player);
+
+    // GameManager
+    var gm = new pc.Entity("GameManager");
+    gm.addComponent("script");
+    gm.script.create("gameManager");
+    world.addChild(gm);
+
+    // Enemy Prefab
+    var enemyPrefab = new pc.Entity("EnemyPrefab");
+    enemyPrefab.addComponent("render", { type: "box" });
+    enemyPrefab.setLocalScale(0.9, 0.9, 0.1);
+    if (enemyTex[0]) {
+      enemyPrefab.render.meshInstances[0].material = makeMaterial(enemyTex[0]);
+    }
+    enemyPrefab._enemyTextures = enemyTex;
+    enemyPrefab.addComponent("script");
+    enemyPrefab.script.create("enemyAI");
+    enemyPrefab.enabled = false;
+    gm.addChild(enemyPrefab);
+
+    // UI Manager
+    var uiMgr = new pc.Entity("UiManager");
+    uiMgr.addComponent("script");
+    uiMgr.script.create("uiManager", {
+      attributes: {
+        menuPanel: menuPanel,
+        hudPanel: hudPanel,
+        pausePanel: pausePanel,
+        enemyCountText: enemyCountText,
+        btnStart: btnStart,
+        btnExit: btnExit,
+      },
+    });
+    ui.addChild(uiMgr);
+
+    // Connect scripts
+    gm.script.gameManager.player = player;
+    gm.script.gameManager.uiManager = uiMgr;
+    gm.script.gameManager.enemyPrefab = enemyPrefab;
+
+    // Start paused
+    menuPanel.enabled = true;
+    hudPanel.enabled = false;
+    app.fire("game:pause");
+
+    console.log("✅ Scene built successfully!");
   }
 
   if (document.readyState === "loading") {

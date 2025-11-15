@@ -19,6 +19,12 @@ EnemyAI.attributes.add("hitboxSize", {
   default: [1.0, 1.2],
   title: "Hitbox Size (w,h)",
 });
+// escala da área de visão
+EnemyAI.attributes.add("visionScale", {
+  type: "number",
+  default: 8.0,
+  title: "Vision Cone Scale",
+});
 
 EnemyAI.prototype.initialize = function () {
   this._state = "wander";
@@ -26,11 +32,12 @@ EnemyAI.prototype.initialize = function () {
   this._targetPos = this._randomPoint();
   this._player = this.app.root.findByName("Player");
   this._lastMoveDir = new pc.Vec3(1, 0, 0);
+  this._currentDirection = "right"; // front, back, left, right
 
-  // texturas do inimigo (espera window.GAME_TEXTURES.enemy = [back(0), front(1), side(2)])
+  // texturas do inimigo
   this.frameTextures = window.GAME_TEXTURES?.enemy || [];
 
-  // material do inimigo (fallback)
+  // material do inimigo
   var mi =
     this.entity.render &&
     this.entity.render.meshInstances &&
@@ -42,40 +49,49 @@ EnemyAI.prototype.initialize = function () {
     this._material = null;
   }
 
-  // CRIAR ENTIDADE VISION (plane) e carregar sprites de vision
+  // CRIAR ENTIDADE VISION (plane)
   this._vision = new pc.Entity(this.entity.name + "_vision");
   this._vision.addComponent("render", { type: "plane" });
   this._vision.reparent(this.entity);
   this._vision.setLocalPosition(0, 0, 0.01);
+  this._vision.enabled = true;
 
-  // prepararemos materiais de visão quando os assets estiverem prontos
+  // Material de visão (cone amarelo semi-transparente)
   this._visionMat = new pc.StandardMaterial();
   this._visionMat.useLighting = false;
   this._visionMat.blendType = pc.BLEND_NORMAL;
   this._visionMat.opacity = 0.45;
+  this._visionMat.emissive = new pc.Color(1, 1, 0); // amarelo
+  this._visionMat.emissiveIntensity = 0.8;
   this._visionMat.update();
   this._vision.render.meshInstances[0].material = this._visionMat;
 
-  // pré-carrega as texturas de visão (assets)
+  // Carregar texturas de visão (verifica se existem)
   this._visionAssets = {
-    front: this._ensureAsset("game_assets/enemy/enemy_vision_front.png"),
-    back: this._ensureAsset("game_assets/enemy/enemy_vision_back.png"),
-    side: this._ensureAsset("game_assets/enemy/enemy_vision_side.png"),
+    front: window.GAME_TEXTURES?.vision?.[1],
+    back: window.GAME_TEXTURES?.vision?.[0],
+    side: window.GAME_TEXTURES?.vision?.[2],
   };
+
+  // Se não houver texturas, cria cone amarelo simples
+  if (!this._visionAssets.front && !this._visionAssets.back && !this._visionAssets.side) {
+    console.log("⚠️ Vision textures not found, using solid color cone");
+    this._useSimpleCone = true;
+  }
 
   // hitbox sizes
   this._hitW = this.hitboxSize.x;
   this._hitH = this.hitboxSize.y;
 
-  // cooldown para múltiplos hits do mesmo inimigo
+  // cooldown para múltiplos hits
   this._lastHitTime = 0;
-  this._hitCooldown = 0.8; // segundos
+  this._hitCooldown = 0.8;
 
-  // contador global de hits se não existir
+  // contador global de hits
   if (window.PLAYER_HITS === undefined) window.PLAYER_HITS = 0;
 };
 
-// cria/retorna asset (não duplicar se já existe)
+// cria/retorna asset
 EnemyAI.prototype._ensureAsset = function (url) {
   var existing = this.app.assets.find(url);
   if (existing) return existing;
@@ -108,12 +124,12 @@ EnemyAI.prototype.update = function (dt) {
       this.wanderChangeInterval + Math.random() * this.wanderChangeInterval;
   }
 
-  // detect player in sight (distance + angle)
+  // detect player in sight
   if (this._isPlayerInSight()) {
     this._state = "chase";
     this._targetPos = this._player.getPosition().clone();
   } else if (this._state === "chase") {
-    // small hysteresis: if lost, return to wander after some time
+    // hysteresis: if lost, return to wander
     if (!this._chaseLoseTimer) this._chaseLoseTimer = 0.8;
     this._chaseLoseTimer -= dt;
     if (this._chaseLoseTimer <= 0) {
@@ -133,7 +149,7 @@ EnemyAI.prototype.update = function (dt) {
   this.checkCollisionWithPlayer();
 };
 
-// movement toward target (also sets _lastMoveDir)
+// movement toward target
 EnemyAI.prototype._moveToward = function (target, speed, dt) {
   var cur = this.entity.getPosition();
   var dir = new pc.Vec3(target.x - cur.x, target.y - cur.y, 0);
@@ -153,7 +169,7 @@ EnemyAI.prototype._moveToward = function (target, speed, dt) {
   this.entity.setLocalPosition(p);
 };
 
-// verifica se player está dentro do cone de visão (apenas distância + ângulo)
+// verifica se player está dentro do cone de visão
 EnemyAI.prototype._isPlayerInSight = function () {
   if (!this._player) return false;
   var myPos = this.entity.getPosition();
@@ -162,7 +178,7 @@ EnemyAI.prototype._isPlayerInSight = function () {
   var dist = Math.sqrt(v.x * v.x + v.y * v.y);
   if (dist > this.sightDistance) return false;
 
-  // forward = last move direction se existir, senão +X
+  // forward = last move direction
   var forward =
     this._lastMoveDir && this._lastMoveDir.lengthSq() > 0
       ? this._lastMoveDir.clone()
@@ -175,7 +191,7 @@ EnemyAI.prototype._isPlayerInSight = function () {
   return angleDeg <= this.sightAngleDeg * 0.5;
 };
 
-// atualiza sprite do corpo e sprite do vision conforme direção
+// atualiza sprite do corpo e cone de visão
 EnemyAI.prototype._updateSpriteAndVision = function () {
   var dir = this._lastMoveDir || new pc.Vec3(1, 0, 0);
   if (dir.lengthSq() === 0) dir.set(1, 0, 0);
@@ -185,23 +201,30 @@ EnemyAI.prototype._updateSpriteAndVision = function () {
   var texIdx = 1; // default front
   var flip = false;
   var visionKey = "side";
+  var angle = 0; // rotação do cone
 
   if (absX > absY) {
     // horizontal
     texIdx = 2; // side
     flip = dir.x < 0;
     visionKey = "side";
+    this._currentDirection = dir.x > 0 ? "right" : "left";
+    angle = dir.x > 0 ? -90 : 90; // cone aponta para direita ou esquerda
   } else {
     if (dir.y > 0) {
       texIdx = 0; // back
       visionKey = "back";
+      this._currentDirection = "back";
+      angle = 0; // cone aponta para cima
     } else {
       texIdx = 1; // front
       visionKey = "front";
+      this._currentDirection = "front";
+      angle = 180; // cone aponta para baixo
     }
   }
 
-  // aplica textura no corpo (frameTextures pode ter assets com .resource)
+  // aplica textura no corpo
   var asset = this.frameTextures && this.frameTextures[texIdx];
   var tex = asset
     ? asset.resource
@@ -222,9 +245,9 @@ EnemyAI.prototype._updateSpriteAndVision = function () {
   var s = this.entity.getLocalScale();
   this.entity.setLocalScale(flip ? -Math.abs(s.x) : Math.abs(s.x), s.y, s.z);
 
-  // aplica visão (se asset carregado)
+  // aplica textura de visão
   var vAsset = this._visionAssets[visionKey];
-  var vTex = vAsset && vAsset.resource ? vAsset.resource : null;
+  var vTex = vAsset || null;
   if (vTex) {
     if (this._visionMat.diffuseMap !== vTex) {
       this._visionMat.diffuseMap = vTex;
@@ -232,18 +255,47 @@ EnemyAI.prototype._updateSpriteAndVision = function () {
       this._visionMat.update();
     }
 
-    // escalar o cone de visão conforme o tamanho real do sprite
-    const texW = vTex.width / 100; // fator de escala (ajuste conforme necessário)
-    const texH = vTex.height / 100;
-    this._vision.setLocalScale(texW, texH, 1);
+    // escala do cone de visão
+    var scale = this.visionScale;
+    this._vision.setLocalScale(scale, scale, 1);
   }
 
-  // posiciona visão um pouco à frente do inimigo (no mundo local)
-  var offset = dir.clone().normalize().scale(1.0);
-  this._vision.setLocalPosition(offset.x, offset.y, 0.01);
+  // IMPORTANTE: Rotaciona o cone para apontar na direção do movimento
+  this._vision.setLocalEulerAngles(0, 0, angle);
+  
+  // Posiciona o cone à frente do inimigo
+  var offset = this.sightDistance * 0.4; // distância do centro do cone
+  var offsetX = 0, offsetY = 0;
+  
+  switch(this._currentDirection) {
+    case "front":
+      offsetY = -offset;
+      break;
+    case "back":
+      offsetY = offset;
+      break;
+    case "right":
+      offsetX = offset;
+      break;
+    case "left":
+      offsetX = -offset;
+      break;
+  }
+  
+  this._vision.setLocalPosition(offsetX, offsetY, 0.01);
+  
+  // Muda cor do cone quando perseguindo
+  if (this._state === "chase") {
+    this._visionMat.emissive = new pc.Color(1, 0, 0); // vermelho
+    this._visionMat.opacity = 0.6;
+  } else {
+    this._visionMat.emissive = new pc.Color(1, 1, 0); // amarelo
+    this._visionMat.opacity = 0.45;
+  }
+  this._visionMat.update();
 };
 
-// retorna AABB do inimigo (world)
+// retorna AABB do inimigo
 EnemyAI.prototype.getHitboxAabb = function () {
   var pos = this.entity.getPosition();
   var halfW = this._hitW / 2;
@@ -256,7 +308,7 @@ EnemyAI.prototype.getHitboxAabb = function () {
   };
 };
 
-// checa colisão AABB simples com player e contabiliza hits
+// checa colisão AABB simples com player
 EnemyAI.prototype.checkCollisionWithPlayer = function () {
   const player = this.app.root.findByName("Player");
   if (!player) return;
@@ -264,10 +316,10 @@ EnemyAI.prototype.checkCollisionWithPlayer = function () {
   // AABB do inimigo
   const eBox = this.getHitboxAabb();
 
-  // AABB do player (gera automaticamente com base no tamanho do sprite)
+  // AABB do player
   const pPos = player.getPosition();
-  const pHalfW = 0.4; // metade da largura aproximada do sprite
-  const pHalfH = 0.5; // metade da altura aproximada do sprite
+  const pHalfW = 0.4;
+  const pHalfH = 0.5;
   const pBox = {
     minX: pPos.x - pHalfW,
     maxX: pPos.x + pHalfW,
