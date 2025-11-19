@@ -1,4 +1,4 @@
-// enemyAI.js - ATUALIZADO COM LAYERS
+// enemyAI.js - VERSÃO CORRIGIDA COM CONE TRIANGULAR FUNCIONAL
 // Wander + visão com sprite + hitbox AABB que conta 4 hits até Game Over
 
 var EnemyAI = pc.createScript("enemyAI");
@@ -47,7 +47,6 @@ EnemyAI.prototype.initialize = function () {
     this._material = null;
   }
 
-  // ⭐ SEMPRE CRIA UM NOVO CONE DE VISÃO
   console.log("🆕 Creating vision cone for", this.entity.name);
   
   // Remove cone antigo se existir
@@ -57,57 +56,26 @@ EnemyAI.prototype.initialize = function () {
     oldVision.destroy();
   }
   
-  // ⭐ CRIAR ENTIDADE VISION - USANDO BOX para melhor visibilidade
+  // ✅ CRIAR CONE TRIANGULAR REAL
   this._vision = new pc.Entity(this.entity.name + "_vision");
-  this._vision.addComponent("render", { 
-    type: "box", // ⭐ Mudado de plane para box
-    castShadows: false,
-    receiveShadows: false
-  });
   
-  // Adiciona à hierarquia ANTES de configurar layers
+  // Criar mesh triangular customizado
+  this._createTriangleMesh();
+  
+  // Adiciona à hierarquia
   this.entity.addChild(this._vision);
   
-  // ⭐ APLICA LAYER DEPOIS de adicionar à hierarquia
+  // Posição inicial
+  this._vision.setLocalPosition(0, 0, 0.05);
+  this._vision.enabled = true;
+  
+  // ✅ APLICA LAYER (se existir)
   if (window.GAME_LAYERS && window.GAME_LAYERS.VISION) {
     this._vision.render.layers = [window.GAME_LAYERS.VISION];
     console.log("✅ Vision layer applied:", window.GAME_LAYERS.VISION);
   } else {
-    console.warn("⚠️ VISION layer not found! Using default.");
-  }
-  
-  // Posição e escala inicial (cone triangular achatado)
-  this._vision.setLocalPosition(0, 0, 0.03); // Z maior para garantir visibilidade
-  this._vision.setLocalScale(6, 6, 0.05); // Escala grande e achatado
-  this._vision.enabled = true;
-
-  // ⭐ Material SUPER VISÍVEL (amarelo brilhante opaco)
-  this._visionMat = new pc.StandardMaterial();
-  this._visionMat.useLighting = false;
-  this._visionMat.blendType = pc.BLEND_NORMAL;
-  this._visionMat.opacity = 0.7; // Bem visível
-  this._visionMat.emissive = new pc.Color(1, 1, 0); // Amarelo puro
-  this._visionMat.emissiveIntensity = 1.5; // Bem brilhante
-  this._visionMat.depthWrite = false;
-  this._visionMat.cull = pc.CULLFACE_NONE; // Renderiza dos dois lados
-  this._visionMat.update();
-  
-  if (this._vision.render && this._vision.render.meshInstances[0]) {
-    this._vision.render.meshInstances[0].material = this._visionMat;
-    console.log("✅ Vision material applied (bright yellow, opacity 0.7)");
-  } else {
-    console.error("❌ Failed to apply vision material!");
-  }
-
-  // Carregar texturas de visão
-  this._visionAssets = {
-    front: window.GAME_TEXTURES?.vision?.[1],
-    back: window.GAME_TEXTURES?.vision?.[0],
-    side: window.GAME_TEXTURES?.vision?.[2],
-  };
-
-  if (!this._visionAssets.front && !this._visionAssets.back && !this._visionAssets.side) {
-    this._useSimpleCone = true;
+    console.warn("⚠️ VISION layer not found - using default layers");
+    this._vision.render.layers = [pc.LAYERID_WORLD];
   }
 
   // Hitbox sizes
@@ -121,7 +89,85 @@ EnemyAI.prototype.initialize = function () {
   // Contador global de hits
   if (window.PLAYER_HITS === undefined) window.PLAYER_HITS = 0;
 
-  console.log("👹 Enemy initialized. Vision layer:", window.GAME_LAYERS?.VISION, "| Clone:", !!existingVision);
+  console.log("👹 Enemy initialized with vision cone!");
+};
+
+EnemyAI.prototype._createTriangleMesh = function() {
+  console.log("🔨 Creating triangle mesh...");
+  
+  try {
+    // Criar geometria triangular customizada (cone maior e mais visível)
+    var vertices = new Float32Array([
+      0, 0, 0,           // Ponto de origem (centro)
+      -0.5, 1, 0,        // Ponta esquerda
+      0.5, 1, 0          // Ponta direita
+    ]);
+    
+    var indices = new Uint16Array([0, 1, 2]);
+    
+    var normals = new Float32Array([
+      0, 0, 1,
+      0, 0, 1,
+      0, 0, 1
+    ]);
+    
+    var uvs = new Float32Array([
+      0.5, 0,
+      0, 1,
+      1, 1
+    ]);
+    
+    // Criar mesh
+    var mesh = new pc.Mesh(this.app.graphicsDevice);
+    mesh.setPositions(vertices);
+    mesh.setNormals(normals);
+    mesh.setUvs(0, uvs);
+    mesh.setIndices(indices);
+    mesh.update(pc.PRIMITIVE_TRIANGLES);
+    
+    console.log("✅ Mesh created successfully");
+    
+    // Criar material ANTES de adicionar o componente
+    var material = new pc.StandardMaterial();
+    material.diffuse.set(1, 1, 0); // Amarelo
+    material.emissive.set(1, 1, 0);
+    material.emissiveIntensity = 1;
+    material.opacity = 0.6;
+    material.blendType = pc.BLEND_NORMAL;
+    material.depthWrite = false;
+    material.cull = pc.CULLFACE_NONE; // Renderizar ambos os lados
+    material.update();
+    
+    console.log("✅ Material created");
+    
+    // Criar mesh instance com o material
+    var meshInstance = new pc.MeshInstance(mesh, material);
+    
+    // Adicionar componente render
+    this._vision.addComponent('render', {
+      type: 'asset',
+      meshInstances: [meshInstance]
+    });
+    
+    console.log("✅ Render component added");
+    
+    // Configurar escala do cone (maior para ser mais visível)
+    this._vision.setLocalScale(
+      this.visionScale * 0.8, 
+      this.sightDistance * 0.8, 
+      1
+    );
+    
+    console.log("✅ Scale set to:", this.visionScale * 0.8, this.sightDistance * 0.8);
+    
+    // Guardar referência do material
+    this._visionMat = material;
+    
+    console.log("✅ Vision cone fully created!");
+    
+  } catch (error) {
+    console.error("❌ Error creating vision cone:", error);
+  }
 };
 
 EnemyAI.prototype._randomPoint = function () {
@@ -208,37 +254,45 @@ EnemyAI.prototype._isPlayerInSight = function () {
 };
 
 EnemyAI.prototype._updateSpriteAndVision = function () {
+  if (!this._vision || !this._visionMat) return;
+  
   var dir = this._lastMoveDir || new pc.Vec3(1, 0, 0);
   if (dir.lengthSq() === 0) dir.set(1, 0, 0);
-  var absX = Math.abs(dir.x),
-    absY = Math.abs(dir.y);
+  
+  // Normalizar direção
+  dir.normalize();
+  
+  var absX = Math.abs(dir.x);
+  var absY = Math.abs(dir.y);
 
   var texIdx = 1;
   var flip = false;
-  var visionKey = "side";
-  var angle = 0;
 
+  // 🎯 CALCULAR ÂNGULO DIRETO DO VETOR DE MOVIMENTO
+  // atan2 retorna o ângulo em radianos, convertemos para graus
+  var angleRad = Math.atan2(dir.y, dir.x);
+  var angleDeg = angleRad * (180 / Math.PI);
+  
+  // Ajustar para o sistema de coordenadas do PlayCanvas
+  // (0° = direita, 90° = cima, -90° = baixo, 180° = esquerda)
+  var visionAngle = angleDeg - 90; // Subtrai 90° porque o cone base aponta para cima
+
+  // Determinar sprite baseado na direção predominante
   if (absX > absY) {
-    texIdx = 2;
+    texIdx = 2; // Sprite lateral
     flip = dir.x < 0;
-    visionKey = "side";
     this._currentDirection = dir.x > 0 ? "right" : "left";
-    angle = dir.x > 0 ? -90 : 90;
   } else {
     if (dir.y > 0) {
-      texIdx = 1;
-      visionKey = "front";
+      texIdx = 1; // Sprite frente
       this._currentDirection = "front";
-      angle = 0;
     } else {
-      texIdx = 0;
-      visionKey = "back";
+      texIdx = 0; // Sprite costas
       this._currentDirection = "back";
-      angle = 180;
     }
   }
 
-  // Aplica textura no corpo
+  // Aplicar textura
   var asset = this.frameTextures && this.frameTextures[texIdx];
   var tex = asset
     ? asset.resource
@@ -247,6 +301,7 @@ EnemyAI.prototype._updateSpriteAndVision = function () {
       ? asset
       : null
     : null;
+  
   if (tex && this._material) {
     if (this._material.diffuseMap !== tex) {
       this._material.diffuseMap = tex;
@@ -255,55 +310,29 @@ EnemyAI.prototype._updateSpriteAndVision = function () {
     }
   }
 
-  // Flip
+  // Flip horizontal do sprite
   var s = this.entity.getLocalScale();
   this.entity.setLocalScale(flip ? -Math.abs(s.x) : Math.abs(s.x), s.y, s.z);
 
-  // Aplica textura de visão
-  var vAsset = this._visionAssets[visionKey];
-  var vTex = vAsset || null;
-  if (vTex) {
-    if (this._visionMat.diffuseMap !== vTex) {
-      this._visionMat.diffuseMap = vTex;
-      this._visionMat.emissiveMap = vTex;
-      this._visionMat.update();
-    }
-
-    var scale = this.visionScale;
-    this._vision.setLocalScale(scale, scale, 1);
-  }
-
-  // Rotaciona o cone
-  this._vision.setLocalEulerAngles(0, 0, angle);
+  // 🎯 ATUALIZAR CONE DE VISÃO - ROTAÇÃO PRECISA
+  this._vision.setLocalEulerAngles(0, 0, visionAngle);
   
-  // Posiciona o cone à frente do inimigo
-  var offset = this.sightDistance * 0.4;
-  var offsetX = 0, offsetY = 0;
+  // Offset do cone baseado na direção EXATA
+  var offset = 0.3; // Offset pequeno para ficar próximo do inimigo
+  var offsetX = dir.x * offset;
+  var offsetY = dir.y * offset;
   
-  switch(this._currentDirection) {
-    case "front":
-      offsetY = -offset;
-      break;
-    case "back":
-      offsetY = offset;
-      break;
-    case "right":
-      offsetX = offset;
-      break;
-    case "left":
-      offsetX = -offset;
-      break;
-  }
+  this._vision.setLocalPosition(offsetX, offsetY, 0.05);
   
-  this._vision.setLocalPosition(offsetX, offsetY, 0.01);
-  
-  // Muda cor do cone quando perseguindo
+  // Cor baseada no estado
   if (this._state === "chase") {
-    this._visionMat.emissive = new pc.Color(1, 0, 0); // vermelho
-    this._visionMat.opacity = 0.6;
+    this._visionMat.diffuse.set(1, 0, 0);
+    this._visionMat.emissive.set(1, 0, 0);
+    this._visionMat.opacity = 0.9;
   } else {
-    this._visionMat.emissive = new pc.Color(1, 1, 0); // amarelo
-    this._visionMat.opacity = 0.45;
+    this._visionMat.diffuse.set(1, 1, 0);
+    this._visionMat.emissive.set(1, 1, 0);
+    this._visionMat.opacity = 0.8;
   }
   this._visionMat.update();
 };
