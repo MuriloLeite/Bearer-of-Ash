@@ -1,7 +1,7 @@
 var Torch = pc.createScript('torch');
 
 Torch.attributes.add('startLit', { type: 'boolean', default: false, title: 'Start Lit' });
-Torch.attributes.add('igniteTime', { type: 'number', default: 5.0, title: 'Ignite Hold Time (s)' }); // ⭐ Mudado de 0.8 para 5.0
+Torch.attributes.add('igniteTime', { type: 'number', default: 5.0, title: 'Ignite Hold Time (s)' });
 Torch.attributes.add('extinguishTime', { type: 'number', default: 2.5, title: 'Extinguish Time (s)' });
 Torch.attributes.add('spriteFrames', { type: 'number', default: 2, title: 'Sprite Frames (0=unlit,1=lit)' });
 Torch.attributes.add('litFrameIndex', { type: 'number', default: 1, title: 'Lit Frame Index' });
@@ -14,23 +14,121 @@ Torch.attributes.add('litTexture', { type: 'asset', title: 'Lit Texture (optiona
 
 Torch.prototype.initialize = function () {
     this._isLit = !!this.startLit;
-    this._igniteBy = null; // player entity
+    this._igniteBy = null;
     this._igniteProgress = 0;
-    this._extinguishBy = null; // enemy entity
+    this._extinguishBy = null;
     this._extinguishProgress = 0;
 
     if (this.tag) this.entity.tags.add(this.tag);
 
-    // Register with player discovery
     this.app.fire('torch:register', this.entity);
 
     this._applySprite();
     
-    console.log("Torch initialized:", this.entity.name, "| Lit:", this._isLit);
+    // ✅ Criar barra de progresso DOM (centro inferior da tela)
+    this._createProgressBar();
+    
+    console.log("🔥 Torch initialized:", this.entity.name, "| Lit:", this._isLit);
 };
 
 Torch.prototype.onDestroy = function () {
     this.app.fire('torch:unregister', this.entity);
+    
+    // Remove barra de progresso
+    if (this._progressContainer && this._progressContainer.parentNode) {
+        this._progressContainer.parentNode.removeChild(this._progressContainer);
+    }
+};
+
+// 🎨 CRIAR BARRA DE PROGRESSO VISUAL
+Torch.prototype._createProgressBar = function() {
+    // Container principal
+    this._progressContainer = document.createElement('div');
+    this._progressContainer.id = 'torch-progress-container';
+    this._progressContainer.style.position = 'fixed';
+    this._progressContainer.style.bottom = '80px';
+    this._progressContainer.style.left = '50%';
+    this._progressContainer.style.transform = 'translateX(-50%)';
+    this._progressContainer.style.width = '400px';
+    this._progressContainer.style.display = 'none'; // Escondido por padrão
+    this._progressContainer.style.zIndex = '1000';
+    this._progressContainer.style.fontFamily = 'Arial, sans-serif';
+    
+    // Texto acima da barra
+    this._progressText = document.createElement('div');
+    this._progressText.style.color = '#FFD700';
+    this._progressText.style.fontSize = '18px';
+    this._progressText.style.textAlign = 'center';
+    this._progressText.style.marginBottom = '8px';
+    this._progressText.style.fontWeight = 'bold';
+    this._progressText.style.textShadow = '2px 2px 4px rgba(0,0,0,0.8)';
+    this._progressText.textContent = '🔥 Acendendo tocha...';
+    
+    // Background da barra
+    this._progressBarBg = document.createElement('div');
+    this._progressBarBg.style.width = '100%';
+    this._progressBarBg.style.height = '30px';
+    this._progressBarBg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    this._progressBarBg.style.border = '2px solid #FFD700';
+    this._progressBarBg.style.borderRadius = '15px';
+    this._progressBarBg.style.overflow = 'hidden';
+    this._progressBarBg.style.boxShadow = '0 0 10px rgba(255, 215, 0, 0.5)';
+    
+    // Barra de preenchimento
+    this._progressBarFill = document.createElement('div');
+    this._progressBarFill.style.width = '0%';
+    this._progressBarFill.style.height = '100%';
+    this._progressBarFill.style.background = 'linear-gradient(90deg, #FF6B00 0%, #FFD700 50%, #FFF700 100%)';
+    this._progressBarFill.style.transition = 'width 0.1s ease-out';
+    this._progressBarFill.style.boxShadow = 'inset 0 2px 4px rgba(255, 255, 255, 0.3)';
+    
+    // Texto de porcentagem dentro da barra
+    this._progressPercent = document.createElement('div');
+    this._progressPercent.style.position = 'absolute';
+    this._progressPercent.style.width = '100%';
+    this._progressPercent.style.height = '30px';
+    this._progressPercent.style.lineHeight = '30px';
+    this._progressPercent.style.textAlign = 'center';
+    this._progressPercent.style.color = 'white';
+    this._progressPercent.style.fontSize = '16px';
+    this._progressPercent.style.fontWeight = 'bold';
+    this._progressPercent.style.textShadow = '1px 1px 3px rgba(0,0,0,0.9)';
+    this._progressPercent.textContent = '0%';
+    
+    // Montar estrutura
+    this._progressBarBg.appendChild(this._progressBarFill);
+    
+    var barWrapper = document.createElement('div');
+    barWrapper.style.position = 'relative';
+    barWrapper.appendChild(this._progressBarBg);
+    barWrapper.appendChild(this._progressPercent);
+    
+    this._progressContainer.appendChild(this._progressText);
+    this._progressContainer.appendChild(barWrapper);
+    
+    document.body.appendChild(this._progressContainer);
+};
+
+// 📊 ATUALIZAR BARRA DE PROGRESSO
+Torch.prototype._updateProgressBar = function(percent, visible) {
+    if (!this._progressContainer) return;
+    
+    if (visible) {
+        this._progressContainer.style.display = 'block';
+        this._progressBarFill.style.width = percent + '%';
+        this._progressPercent.textContent = Math.floor(percent) + '%';
+        
+        // Animação de brilho quando próximo de 100%
+        if (percent > 80) {
+            this._progressBarBg.style.borderColor = '#FFF700';
+            this._progressBarBg.style.boxShadow = '0 0 20px rgba(255, 247, 0, 0.8)';
+        } else {
+            this._progressBarBg.style.borderColor = '#FFD700';
+            this._progressBarBg.style.boxShadow = '0 0 10px rgba(255, 215, 0, 0.5)';
+        }
+    } else {
+        this._progressContainer.style.display = 'none';
+    }
 };
 
 Torch.prototype._applySprite = function () {
@@ -76,15 +174,16 @@ Torch.prototype.beginIgnite = function (playerEntity) {
     if (this._isLit) return;
     if (this._igniteBy && this._igniteBy !== playerEntity) return;
     this._igniteBy = playerEntity;
-    console.log("Player começou a acender tocha:", this.entity.name);
+    console.log("🔥 Player começou a acender tocha:", this.entity.name);
 };
 
 Torch.prototype.cancelIgnite = function (playerEntity) {
     if (this._igniteBy === playerEntity) {
         this._igniteBy = null;
         this._igniteProgress = 0;
+        this._updateProgressBar(0, false); // Esconde barra
         this.app.fire('ui:hint', '');
-        console.log("Ignição cancelada:", this.entity.name);
+        console.log("❌ Ignição cancelada:", this.entity.name);
     }
 };
 
@@ -119,14 +218,13 @@ Torch.prototype.update = function (dt) {
         
         if (stillHolding && withinReach) {
             this._igniteProgress += dt;
-            var percent = Math.min(100, Math.floor(this._igniteProgress / this.igniteTime * 100));
+            var percent = Math.min(100, (this._igniteProgress / this.igniteTime) * 100);
             
-            // Feedback visual progressivo
-            var barWidth = 20;
-            var filledWidth = Math.floor((percent / 100) * barWidth);
-            var bar = '[' + '='.repeat(filledWidth) + ' '.repeat(barWidth - filledWidth) + ']';
+            // ✅ ATUALIZAR BARRA DE PROGRESSO VISUAL
+            this._updateProgressBar(percent, true);
             
-            this.app.fire('ui:hint', 'Acendendo tocha... ' + percent + '% ' + bar);
+            // Hint text simples
+            this.app.fire('ui:hint', '💡 Segure E para acender');
             
             // Efeito visual na própria tocha (brilho crescente)
             this._applyIgniteEffect(percent / 100);
@@ -135,14 +233,22 @@ Torch.prototype.update = function (dt) {
                 this._setLit(true);
                 this._igniteBy = null;
                 this._igniteProgress = 0;
-                this.app.fire('ui:hint', 'Tocha acesa!');
+                this._updateProgressBar(0, false); // Esconde barra
+                this.app.fire('ui:hint', '✅ Tocha acesa!');
                 this._playVfx(this.vfxOnIgnite);
-                console.log("Tocha acesa com sucesso:", this.entity.name);
+                console.log("✅ Tocha acesa com sucesso:", this.entity.name);
+                
+                // Remove hint após 2 segundos
+                var self = this;
+                setTimeout(function() {
+                    self.app.fire('ui:hint', '');
+                }, 2000);
             }
         } else {
             // interrupted
             this._igniteBy = null;
             this._igniteProgress = 0;
+            this._updateProgressBar(0, false); // Esconde barra
             this.app.fire('ui:hint', '');
         }
     }
@@ -159,7 +265,7 @@ Torch.prototype.update = function (dt) {
                 this._extinguishBy = null;
                 this._extinguishProgress = 0;
                 this._playVfx(this.vfxOnExtinguish);
-                console.log("Tocha apagada pelo inimigo:", this.entity.name);
+                console.log("💨 Tocha apagada pelo inimigo:", this.entity.name);
             }
         } else {
             this._extinguishBy = null;
@@ -168,7 +274,7 @@ Torch.prototype.update = function (dt) {
     }
 };
 
-// ⭐ NOVO: Aplica efeito visual durante ignição
+// Aplica efeito visual durante ignição
 Torch.prototype._applyIgniteEffect = function (progress) {
     if (!this.entity.render) return;
     

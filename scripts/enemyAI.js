@@ -315,7 +315,9 @@ EnemyAI.prototype._updateSpriteAndVision = function () {
   this.entity.setLocalScale(flip ? -Math.abs(s.x) : Math.abs(s.x), s.y, s.z);
 
   // ATUALIZAR CONE DE VISÃO - ROTAÇÃO PRECISA
-  this._vision.setLocalEulerAngles(0, 0, visionAngle);
+  // 🔥 CORREÇÃO: quando flip=true, inverte o ângulo para compensar o espelhamento
+  var finalVisionAngle = flip ? -visionAngle : visionAngle;
+  this._vision.setLocalEulerAngles(0, 0, finalVisionAngle);
   
   // Offset do cone baseado na direção EXATA
   var offset = 0.3; // Offset pequeno para ficar próximo do inimigo
