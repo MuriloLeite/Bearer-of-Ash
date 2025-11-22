@@ -396,14 +396,86 @@ EnemyAI.prototype.triggerGameOver = function () {
   this.app.timeScale = 0;
 
   const gameOverDiv = document.createElement("div");
-  gameOverDiv.innerHTML =
-    "<h1 style='color:red;font-size:48px;text-align:center;margin-top:40vh;'>GAME OVER</h1>";
-  gameOverDiv.style.position = "fixed";
-  gameOverDiv.style.top = "0";
-  gameOverDiv.style.left = "0";
-  gameOverDiv.style.width = "100%";
-  gameOverDiv.style.height = "100%";
-  gameOverDiv.style.background = "rgba(0,0,0,0.7)";
-  gameOverDiv.style.zIndex = "9999";
+  gameOverDiv.id = "gameOverScreen";
+  gameOverDiv.innerHTML = `
+    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+      <h1 style="color: red; font-size: 48px; text-align: center; margin-bottom: 30px;">GAME OVER!</h1>
+      <h3 style="color: orange; font-size: 25px; text-align: center; margin-bottom: 30px;">Você foi capturado pelos Towners... e a luz da Candelária permanece. </h3>
+      <div style="display: flex; gap: 20px;">
+        <button id="restartGameBtn" style="padding: 15px 30px; font-size: 18px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">
+          Voltar ao Menu Inicial
+        </button>
+      </div>
+    </div>
+  `;
+  
   document.body.appendChild(gameOverDiv);
+
+  // Usar event delegation para evitar problemas de timing
+  setTimeout(() => {
+    const restartBtn = document.getElementById('restartGameBtn');
+    const menuBtn = document.getElementById('backToMenuBtn');
+    
+    if (restartBtn) {
+      restartBtn.onclick = () => {
+        console.log("Botão reiniciar clicado!");
+        this.restartGame();
+      };
+    }
+    
+    if (menuBtn) {
+      menuBtn.onclick = () => {
+        console.log("Botão menu clicado!");
+        this.backToMainMenu();
+      };
+    }
+    
+    console.log("Event listeners adicionados aos botões");
+  }, 100);
 };
+
+EnemyAI.prototype.restartGame = function () {
+  console.log("Reiniciando jogo...");
+  
+  // Remover a tela de Game Over
+  const gameOverDiv = document.getElementById('gameOverScreen');
+  if (gameOverDiv) {
+    gameOverDiv.remove();
+  }
+  
+  // Resetar variáveis do jogo ANTES de restaurar o timescale
+  window.PLAYER_HITS = 0;
+  this._gameOverTriggered = false;
+  
+  // Restaurar o timescale
+  this.app.timeScale = 1;
+  
+  // Método 1: Recarregar a cena atual (mais confiável)
+  const currentScene = this.app.scenes.current;
+  if (currentScene) {
+    this.app.scenes.loadScene(currentScene.name);
+  } else {
+    // Método 2: Recarregar a página como fallback
+    window.location.reload();
+  }
+};
+
+EnemyAI.prototype.backToMainMenu = function () {
+  console.log("Voltando para o menu inicial...");
+  
+  // Remover a tela de Game Over
+  const gameOverDiv = document.getElementById('gameOverScreen');
+  if (gameOverDiv) {
+    gameOverDiv.remove();
+  }
+  
+  // Resetar variáveis do jogo
+  window.PLAYER_HITS = 0;
+  this._gameOverTriggered = false;
+  
+  // Restaurar o timescale
+  this.app.timeScale = 1;
+  
+  // Método 1: Carregar cena do menu
+  // Substitua "Main Menu" pelo nome exato da sua cena de menu
+  this.app.scenes.loadScene("Main Menu");}

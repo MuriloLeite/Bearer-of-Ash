@@ -195,7 +195,7 @@ Altar.prototype._createVictoryScreen = function() {
 
     // Submensagem
     var subMessage = document.createElement("p");
-    subMessage.textContent = "As trevas foram dissipadas pela luz!";
+    subMessage.textContent = "As luzes foram dissipadas pelas Trevas!";
     subMessage.style.color = "#FFD700";
     subMessage.style.fontSize = "20px";
     subMessage.style.marginBottom = "40px";
@@ -209,7 +209,7 @@ Altar.prototype._createVictoryScreen = function() {
 
     // Botão Jogar Novamente
     var btnRestart = document.createElement("button");
-    btnRestart.textContent = "🔄 Jogar Novamente";
+    btnRestart.textContent = "Jogar Novamente";
     btnRestart.style.padding = "15px 40px";
     btnRestart.style.fontSize = "20px";
     btnRestart.style.fontWeight = "bold";
@@ -244,7 +244,7 @@ Altar.prototype._createVictoryScreen = function() {
 
     // Botão Menu
     var btnMenu = document.createElement("button");
-    btnMenu.textContent = "🏠 Menu Principal";
+    btnMenu.textContent = "Menu Principal";
     btnMenu.style.padding = "15px 40px";
     btnMenu.style.fontSize = "20px";
     btnMenu.style.fontWeight = "bold";
@@ -332,3 +332,38 @@ Altar.prototype._applyFrameTexture = function (frameIndex) {
     }
     mat.update();
 };
+
+// No script que controla a vitória (ex: collectible.js ou goal.js)
+function triggerVictory() {
+    // 🔥 MARCAR QUE JOGADOR GANHOU - ISSO IMPEDE GAME OVER
+    window.GAME_WON = true;
+    
+    // Parar o jogo
+    this.app.timeScale = 0;
+    
+    // Remover qualquer tela de Game Over que possa estar ativa
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    if (gameOverScreen) {
+      gameOverScreen.remove();
+    }
+    
+    // Mostrar tela de vitória
+    const victoryDiv = document.createElement("div");
+    victoryDiv.id = "victoryScreen";
+    victoryDiv.innerHTML = `
+      <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+        <h1 style="color: green; font-size: 48px; text-align: center; margin-bottom: 30px;">VITÓRIA!</h1>
+        <p style="color: white; font-size: 24px; margin-bottom: 30px;">Parabéns! Você completou o nível.</p>
+        <div style="display: flex; gap: 20px;">
+          <button onclick="window.location.reload()" style="padding: 15px 30px; font-size: 18px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">
+            Jogar Novamente
+          </button>
+          <button onclick="window.location.href = '/'" style="padding: 15px 30px; font-size: 18px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer;">
+            Menu Inicial
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(victoryDiv);
+  }

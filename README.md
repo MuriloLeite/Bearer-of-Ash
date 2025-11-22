@@ -220,14 +220,6 @@ Se todas forem apagadas, derrota.
 
 Pause com ESC → Resume/Restart/Return to Main.
 
-## Dificuldade (valores padrão no GameManager)
-
-Easy: enemySpeed 1.6, detectRange 6, spawnInterval 10s, maxEnemies 4, extinguishTime 3.0s
-
-Normal: 2.1, 8, 7s, 6, 2.2s
-
-Hard: 2.7, 10, 5s, 8, 1.6s
-
 
 ## Notas
 
