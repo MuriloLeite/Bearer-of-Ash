@@ -48,6 +48,14 @@ EnemyAI.prototype.initialize = function () {
 
   this._createVisionCone();
 
+  if (!this._visionBaseScale) {
+  this._visionBaseScale = new pc.Vec3(
+    this.sightDistance * 0.85,
+    this.sightDistance * 1.0,
+    1
+  );
+}
+
   this._hitW = this.hitboxSize.x;
   this._hitH = this.hitboxSize.y;
   this._lastHitTime = 0;
@@ -255,9 +263,7 @@ EnemyAI.prototype._collidesWithObjects = function (x, y) {
     if (poste) objects.push({ entity: poste, halfW: 0.6, halfH: 1.1 });
   }
 
-  // Portal
-  var portal = this.app.root.findByName("Portal");
-  if (portal) objects.push({ entity: portal, halfW: 1.75, halfH: 1.75 });
+
 
   // Colisão com tochas também
   var torches = this.app.root.findByTag("torch");
@@ -407,23 +413,29 @@ EnemyAI.prototype._updateVisuals = function () {
     this._material.update();
   }
 
-  // Flip horizontal
+  // Flip horizontal DO SPRITE
   var s = this.entity.getLocalScale();
   this.entity.setLocalScale(flip ? -Math.abs(s.x) : Math.abs(s.x), s.y, s.z);
 
-  // ✅ ROTAÇÃO DO CONE - AGORA CORRETA!
-  // O cone base aponta para Y+ (90°) no espaço local
-  // atan2(fy, fx) retorna o ângulo do vetor em radianos
-  // Convertemos para graus e ajustamos -90° porque o cone aponta para cima
+  // ✅ ROTAÇÃO DO CONE - USA DIREÇÃO REAL DO MOVIMENTO (fx, fy original)
   var angleRad = Math.atan2(fy, fx);
   var angleDeg = angleRad * (180 / Math.PI);
-
-  // ✅ Cone aponta para Y+ (90°), então subtraímos 90° para alinhar
   var coneRotation = angleDeg - 90;
 
   this._vision.setLocalEulerAngles(0, 0, coneRotation);
+  
+  // 🔧 CRÍTICO: Forçar escala absoluta do cone para compensar o flip do pai
+  // Se o pai tem escala X negativa, multiplicamos a escala do cone por -1 em X
+  var parentScaleX = this.entity.getLocalScale().x;
+  var scaleMultiplier = parentScaleX < 0 ? -1 : 1;
+  
+  this._vision.setLocalScale(
+    this._visionBaseScale.x * scaleMultiplier,
+    this._visionBaseScale.y,
+    this._visionBaseScale.z
+  );
 
-  // Pequeno offset na direção de movimento
+  // Offset na direção de movimento (usando fx, fy originais)
   var offset = 0.3;
   this._vision.setLocalPosition(fx * offset, fy * offset, 0.05);
 
@@ -520,10 +532,10 @@ EnemyAI.prototype._triggerGameOver = function () {
         this.style.boxShadow = "0 4px 15px rgba(0,0,0,0.5)";
       };
       restartBtn.onclick = () => {
-        gameOverDiv.remove();
         window.PLAYER_HITS = 0;
-        this._gameOverTriggered = false;
-        this.app.timeScale = 1;
+        if (gameOverDiv && gameOverDiv.parentNode) {
+          gameOverDiv.parentNode.removeChild(gameOverDiv);
+        }
         window.location.reload();
       };
     }
