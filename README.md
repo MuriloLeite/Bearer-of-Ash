@@ -6,7 +6,7 @@ Agora, desperto entre os mundos, você busca restaurar a verdadeira chama, reace
 
 ## Objetivo do jogador
 
-O jogador deve acender as tochas da Ruína no centro da área sagrada. Os Towners, cegos pela devoção, tentarão impedir. Use seus dons sombrios para confundir seus inimigos e finalizar o trabalho. 
+O jogador deve acender as quatro Tochas da Ruína em cada canto do Claustro (cenário) para que no altar (centro), a cada tocha acendida, uma vela seja acesa para completar o ritual. Os Towners, cegos pela devoção, tentarão impedir. Use seus dons sombrios para confundir seus inimigos e finalizar o trabalho. 
 
 ## Personagem principal
 
@@ -32,7 +32,7 @@ Importe esses arquivos para seu projeto PlayCanvas (Assets → Upload). Para ima
 
 ## Hierarquia de Cena
 
-Se usar o fluxo com o Editor, crie duas cenas no PlayCanvas:
+Se usar o fluxo com o editor, crie duas cenas no PlayCanvas:
 
 Menu
 
@@ -98,7 +98,7 @@ Script: uiManager (opcional na cena do jogo se não reutilizar a cena Menu)
 
 Para o fluxo local apenas com a engine, scripts/bootstrap.js cria programaticamente uma hierarquia equivalente em tempo de execução e carrega texturas diretamente da pasta images/.
 
-## Scripts (anexar via Script Component)
+## Scripts 
 
 playerController.js → na entidade Player
 
@@ -208,17 +208,15 @@ Script Component → adicionar uiManager e vincular entidades de painel e textos
 
 Cena Menu carrega com uiManager exibindo MenuPanel.
 
-Escolher dificuldade (Easy/Normal/Hard) → salva em localStorage.
-
 Start → carrega cena TinwoodGrove; uiManager exibe HUD e envia game:resume.
 
-Jogador explora e acende tochas com E; inimigos aparecem e tentam apagar.
+Jogador explora e acende tochas com E; inimigos aparecem e tentam impedir.
 
 Altar atualiza frames conforme tochas acesas; quando todas acesas e mantidas por um tempo, vitória.
 
-Se todas forem apagadas, derrota.
+Se for impedido/capturado, derrota.
 
-Pause com ESC → Resume/Restart/Return to Main.
+Pause com ESC → Resume/Restart/Return.
 
 
 ## Notas
@@ -227,10 +225,75 @@ Execução local apenas com a engine:
 
 Inicie um servidor web local na raiz do repositório e acesse http://localhost:PORT/ para carregar index.html.
 
-Nomes de arquivos de asset esperados por padrão (ajustáveis em scripts/bootstrap.js):
 
 ## Fluxo com Editor:
 
 Criar assets de Sprite e atribuir às entidades. Os scripts também suportam modo apenas textura via Render (atributos frameTextures, unlitTexture, litTexture).
 
 A UI espera componentes Element; vincule via atributos no Editor.
+
+# Demonstração
+
+## Tela inicial do jogo, com informativo sobre movimentação do jogador:
+
+<img width="712" height="406" alt="image" src="https://github.com/user-attachments/assets/d8e439ef-b2c2-4ae1-abe5-1a486de242f5" />
+
+## Tela de Game Over - você foi capturado pelos Towners:
+
+<img width="639" height="356" alt="image" src="https://github.com/user-attachments/assets/a5a8fa1a-15a3-40f5-87c9-a3b99b2b635b" />
+
+## Tela de Vitória - você completou o ritual:
+
+<img width="699" height="429" alt="image" src="https://github.com/user-attachments/assets/ed6dc375-5a83-4294-b7a2-68bdc466e126" />
+
+## Acendendo tocha com barra de carregamento:
+
+<img width="669" height="173" alt="image" src="https://github.com/user-attachments/assets/df9c99d2-a8be-4747-97d7-fa65c8da4949" />
+
+## Indicativo de número de tochas acesas:
+
+<img width="125" height="67" alt="image" src="https://github.com/user-attachments/assets/c8e78db6-39e0-4bc6-9bd7-7aae66dc54e6" />
+
+## Perseguição com cone de visualização do inimigo:
+
+<img width="276" height="298" alt="image" src="https://github.com/user-attachments/assets/4e804083-ebb5-4273-9f63-a04d84dda7e4" />
+
+## Botão de pausa implementado:
+
+<img width="113" height="62" alt="image" src="https://github.com/user-attachments/assets/f20855c1-1d46-453f-b7d0-dd230c849fc6" />
+
+## Trilha sonora do jogo que pausa e retorna quando o jogo é pausado:
+
+<img width="1365" height="629" alt="image" src="https://github.com/user-attachments/assets/a94d4291-f250-4014-88b2-dd2ce2fdc80f" />
+
+## Elementos visuais, com colisão implementada, para enriquecimento do cenário:
+
+<img width="290" height="397" alt="image" src="https://github.com/user-attachments/assets/fb11a020-de33-4bc5-8b59-be7fc9801bb5" />
+<img width="155" height="492" alt="image" src="https://github.com/user-attachments/assets/4acbd6a2-071f-4bb2-a714-9644ed797fba" />
+
+## Personagens de autoria própria, com sprite sheet implementado:
+
+<img width="130" height="196" alt="image" src="https://github.com/user-attachments/assets/7b04f769-0cdb-4536-9b0c-eaba138c96f6" />
+<img width="232" height="325" alt="image" src="https://github.com/user-attachments/assets/7e57feba-26a5-4beb-9247-2248e66a1902" />
+
+## Altar alterado a cada vez que o personagem acende uma tocha:
+
+<img width="357" height="220" alt="image" src="https://github.com/user-attachments/assets/bdc3af24-8c73-46a5-bc64-e6baa076403a" />
+<img width="437" height="274" alt="image" src="https://github.com/user-attachments/assets/39f42c2f-05d0-4233-9d7e-0d8ce9d93092" />
+<img width="442" height="280" alt="image" src="https://github.com/user-attachments/assets/985d1886-5698-4e5c-964c-0d94350f2663" />
+<img width="379" height="237" alt="image" src="https://github.com/user-attachments/assets/fd7fcdba-fada-49ea-b0b7-f75092501990" />
+<img width="356" height="230" alt="image" src="https://github.com/user-attachments/assets/a544466e-555e-4edf-acbb-d719b13f8e80" />
+
+## Visual geral:
+
+<img width="744" height="738" alt="image" src="https://github.com/user-attachments/assets/59aed533-33ca-40bf-a958-6c5e2675c7ba" />
+<img width="750" height="759" alt="image" src="https://github.com/user-attachments/assets/56fd971e-8939-431e-a51f-729f0676f967" />
+
+
+
+
+
+
+
+
+
